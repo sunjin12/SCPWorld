@@ -34,7 +34,8 @@ bash infra/deploy-backend-cloudrun.sh
 ```
 
 - `--source backend/` 로 Buildpacks가 backend/Dockerfile 을 사용해 이미지 빌드
-- 환경변수는 스크립트에 하드코딩 (공개값만)
+- 환경변수는 스크립트에 하드코딩 (공개값만 — GCP 프로젝트 ID, OAuth Client ID, vLLM URL)
+- 민감값(서비스 계정 키, HF 토큰 등)은 저장소에 포함하지 않음. 필요 시 `--update-secrets` 또는 Cloud Run 콘솔에서 시크릿 매니저 연동으로 주입.
 - 서비스명: `scp-backend`, 리전: `asia-southeast1`
 - PowerShell: `infra/deploy-backend-cloudrun.ps1`
 
@@ -48,6 +49,11 @@ curl -s https://scp-backend-1087559947666.asia-southeast1.run.app/health
 Compute service account (`<PROJECT_NUM>-compute@developer.gserviceaccount.com`)에 다음 권한 필요:
 - `roles/datastore.user` — Firestore 읽기/쓰기
 - `roles/run.invoker` (vLLM 서비스에 대해) — vLLM 호출용 ID Token 발급
+
+Cloud Run 환경에서는 메타데이터 서버가 자동으로 ID Token을 발급하므로 키 파일이 필요 없습니다.
+로컬 개발에서 동일 vLLM을 호출하려면 `gcloud auth application-default login`으로는 부족하고 (`fetch_id_token`이
+서비스 계정 자격 증명을 요구), 서비스 계정 impersonation 또는 vLLM을 `--allow-unauthenticated`로
+일시 전환하는 방법을 사용합니다. 자세한 내용은 해당 이슈 트래킹을 참조하세요.
 
 ## 3. 프론트엔드 (Flutter Web)
 
