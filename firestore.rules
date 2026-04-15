@@ -1,0 +1,13 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // SCP World architecture: clients NEVER access Firestore directly.
+    // All data access is brokered through the FastAPI backend, which uses
+    // Firestore Admin SDK (server-side) and bypasses these rules.
+    // Therefore client access is denied at all paths.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

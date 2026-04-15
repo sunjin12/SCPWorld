@@ -1,0 +1,48 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: vllm-server-v3
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/gpu-zonal-redundancy-disabled: 'true'
+        run.googleapis.com/accelerator: nvidia-l4
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 3600
+      containers:
+      - image: vllm/vllm-openai:latest
+        args:
+        - "--model"
+        - "Qwen/Qwen2.5-7B-Instruct"
+        - "--trust-remote-code"
+        - "--max-model-len"
+        - "8192"
+        - "--dtype"
+        - "bfloat16"
+        - "--enforce-eager"
+        - "--gpu-memory-utilization"
+        - "0.8"
+        - "--port"
+        - "8080"
+        - "--served-model-name"
+        - "qwen2.5-7b"
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: "8"
+            memory: 32Gi
+            nvidia.com/gpu: "1"
+        startupProbe:
+          initialDelaySeconds: 60
+          timeoutSeconds: 240
+          periodSeconds: 240
+          failureThreshold: 10
+          tcpSocket:
+            port: 8080
