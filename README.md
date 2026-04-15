@@ -3,12 +3,6 @@
 SCP Foundation 위키 콘텐츠를 RAG로 검색하고, 재단 페르소나(연구원/요원/SCP-079)로 답변하는 챗봇 데모.
 포트폴리오용으로 100% 서버리스 (Cloud Run + Firebase Hosting + Firestore) 로 운영됩니다.
 
-## 라이브
-
-- 프론트엔드: https://scpworld.web.app
-- 백엔드 API: https://scp-backend-1087559947666.asia-southeast1.run.app
-- 첫 요청은 vLLM cold start로 **3~5분** 소요됩니다 (UI에 안내). 이는 의도된 동작입니다 — L4 GPU 24/7 유지 비용을 회피하기 위함.
-
 ## 아키텍처 요약
 
 ```
@@ -51,24 +45,6 @@ Qwen2.5-7B는 중국어·일본어·영문이 섞여 나오는 경향이 있어,
 | 배포 | Cloud Run (vLLM/backend), Firebase Hosting (frontend) |
 | 데이터 파이프라인 | requests + BeautifulSoup → tiktoken 청킹 → 임베딩 업로드 |
 
-## 빠른 시작 — 로컬 개발
-
-### 백엔드
-```bash
-cd backend
-uv sync
-cp ../.env.example .env   # 필요한 값 채우기 (FIRESTORE_PROJECT_ID, GOOGLE_CLIENT_ID 등)
-gcloud auth application-default login
-uv run uvicorn app.main:app --reload --port 8080
-```
-
-### 프론트엔드
-```bash
-cd frontend
-flutter pub get
-flutter run -d chrome \
-  --dart-define=API_BASE_URL=http://localhost:8080
-```
 
 ### 데이터 파이프라인 (1회성)
 ```bash
