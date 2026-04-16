@@ -3,110 +3,64 @@
 SCP Foundation 위키 콘텐츠를 RAG로 검색하고, 재단 페르소나(연구원/요원/SCP-079)로 답변하는 챗봇 데모.
 포트폴리오용으로 100% 서버리스 (Cloud Run + Firebase Hosting + Firestore) 로 운영됩니다.
 
-## 아키텍처 요약
+---
 
-```
-Flutter Web (Firebase Hosting)
-        │ HTTPS + Bearer (Google ID Token)
-        ▼
-FastAPI Cloud Run (CPU, asia-southeast1)
-        │   ├── Firestore Vector Search  (scp_documents, 1024-d BGE-M3)
-        │   ├── Firestore                (sessions, users)
-        │   └── vLLM Cloud Run (GPU L4)  Qwen2.5-7B-Instruct, scale-to-zero
-```
+## Overview: 프로젝트 개요
 
-자세한 다이어그램과 컴포넌트 책임은 [docs/architecture.md](docs/architecture.md) 참조.
+### 기획 배경 및 목표
 
-## 페르소나
+세계관을 탐구할 때, 단순히 위키를 읽는 것이 아니라 하나의 페르소나를 가진 캐릭터와 대화하며 알아가면 재밌을 것 같다고 생각했습니다. 방대한 자료와 오픈된 라이선스(CC BY-SA 3.0)를 가진 SCP 위키를 기반으로, 3가지 캐릭터를 통해 SCP 세계관에 대해 탐구할 수 있는 챗봇을 만들었습니다.
 
-세 명의 캐릭터가 각기 다른 한국어 말투로 답변합니다. 대화 이력은 Firestore 문서 키에 `persona_id`를
-포함시켜 페르소나별로 완전히 분리됩니다.
+### 핵심 기능
 
-| 페르소나 | 말투 | 응답 포맷 |
-|----------|------|-----------|
-| Dr. [REDACTED] (researcher) | **존댓말** (하십시오체, `~습니다/~입니다`) | 임상 보고서 — 객체 지정번호·등급·격리 절차·설명 |
-| Agent [REDACTED] (agent) | **반말** (해라체, `~다/~해/~해라`) | 짧은 전술 브리핑 — 위협/격리/권고 라벨 |
-| SCP-079 | **특수 단편 모드** (`>>>` 시스템 토큰, 8어절 이하, 체언 종결) | 구식 AI 단말기풍, 경멸 어조 |
+| 기능 | 설명 |
+|------|------|
+| 페르소나 선택 | 연구원(Dr. [REDACTED]), 요원(Agent [REDACTED]), SCP-079(Old AI) 중 선택 |
+| RAG 기반 대화 | SCP 위키 문서를 벡터 검색하여 근거 있는 답변 생성 |
+| SSE 스트리밍 | 토큰 단위 실시간 스트리밍으로 자연스러운 대화 경험 |
+| 페르소나별 격리 | 캐릭터마다 독립된 대화 세션 유지 |
+| Google 로그인 | OAuth 2.0 기반 인증, ID Token으로 모든 API 보호 |
+| 출처 표시 | 답변에 사용된 SCP 위키 원문 URL 제공 |
 
-Qwen2.5-7B는 중국어·일본어·영문이 섞여 나오는 경향이 있어, 생성된 응답을 백엔드에서
-`response_filter.sanitize()`로 후처리합니다 — 한자·가나 제거, 페르소나별 영문 화이트리스트
-적용, `>>>` 누출 차단, 마크다운 볼드 마커 스트립. SCP-079만 `>>>` 시스템 토큰을 유지합니다.
+---
 
-## 기술 스택
+### 기술 스택
 
-| 영역 | 사용 기술 |
-|------|-----------|
-| 프론트엔드 | Flutter Web, Riverpod, go_router, google_sign_in |
-| 백엔드 | Python 3.11, FastAPI, Uvicorn, httpx, Pydantic |
-| LLM | vLLM (OpenAI 호환), Qwen2.5-7B-Instruct, NVIDIA L4 GPU |
-| 임베딩 | sentence-transformers BAAI/bge-m3 (CPU, in-process) |
-| RAG / 세션 | Firestore Native Vector Search + 일반 컬렉션 |
-| 인증 | Google OAuth 2.0 (ID Token, audience 검증) |
-| 배포 | Cloud Run (vLLM/backend), Firebase Hosting (frontend) |
-| 데이터 파이프라인 | requests + BeautifulSoup → tiktoken 청킹 → 임베딩 업로드 |
+| 레이어 | 기술 |
+|--------|------|
+| Frontend | Flutter Web, Riverpod, go_router, Google Sign-In v7 |
+| Backend API | FastAPI, Uvicorn, Python 3.11 |
+| LLM Serving | vLLM (Qwen2.5-7B-Instruct), NVIDIA L4 GPU |
+| Embedding | BAAI/bge-m3 (1024차원) |
+| Vector DB | Firestore Native Vector Search (find_nearest, COSINE) |
+| Infra | Cloud Run (Scale-to-Zero), Firebase Hosting, Firestore |
+| Auth | Google OAuth 2.0, ID Token 검증 |
 
+## 시스템 상세 설명
+- **아키텍쳐**: [docs/architecture.md](docs/architecture.md)
+- **배포**: [docs/deployment.md](docs/deployment.md)
+- **프론트엔드**: [docs/frontend.md](docs/frontend.md)
+- **화면구성도**: [docs/screens.md](docs/screens.md)
 
-### 데이터 파이프라인 (1회성)
-```bash
-cd data-pipeline
-uv sync
-uv run python scripts/scrape_scp.py
-uv run python scripts/preprocess.py
-uv run python scripts/upload_to_firestore.py
-uv run python scripts/validate_firestore.py
-```
+---
 
-## 배포
+## System Architecture
 
-배포 절차 전체는 [docs/deployment.md](docs/deployment.md) 참조. 요약:
+### 시스템 구성도
 
-```bash
-# vLLM (GPU 서비스)
-bash infra/deploy-vllm-cloudrun.sh
+![시스템 구성도](docs/images/SCPWorld시스템구성도.png)
 
-# 백엔드 (FastAPI)
-bash infra/deploy-backend-cloudrun.sh
+### 데이터 흐름도
 
-# 프론트엔드 (Flutter Web)
-cd frontend && flutter build web --release
-firebase deploy --only hosting
+**데이터 수집 파이프라인 (오프라인)**
 
-# Firestore 보안 규칙
-firebase deploy --only firestore:rules
-```
+![데이터 수집 파이프라인](docs/images/SCPWorld데이터수집파이프라인.png)
 
-## 프론트엔드 화면 안내
+**실시간 질의 파이프라인 (온라인)**
 
-화면별 사용자 액션은 [docs/frontend_screens.md](docs/frontend_screens.md) 참조.
+![실시간 질의 파이프라인](docs/images/SCPWorld실시간질의파이프라인.png)
 
-## 디렉토리 구조
-
-```
-.
-├── backend/          FastAPI app (services / routers / models)
-├── frontend/         Flutter web (Riverpod + go_router)
-├── data-pipeline/    SCP Wiki 크롤 + 청킹 + 임베딩 업로드
-├── infra/            Cloud Run 배포 스크립트 (vLLM / backend)
-├── docs/             현재 유효한 문서
-│   └── archive/      과거 GKE 시절 / 초기 계획 문서 (참고용)
-├── firebase.json     Firebase Hosting 설정
-├── firestore.rules   Firestore 보안 규칙 (deny-all; backend Admin SDK만 접근)
-└── .env.example      환경변수 템플릿
-```
-
-## 공개 인프라 식별자에 대하여
-
-본 README·소스 코드에 노출된 GCP 프로젝트 ID(`scpworld`), 프로젝트 번호(`1087559947666`),
-OAuth Client ID, Cloud Run 서비스 URL은 모두 **공개되어도 무방한** 설정값입니다. 본인 환경에
-재배포할 경우 `.env.example`과 `infra/`의 스크립트에서 해당 값을 본인 프로젝트 값으로 교체하세요.
-
-민감 자격 증명(서비스 계정 키, HuggingFace 토큰 등)은 이 저장소에 포함되어 있지 않으며,
-필요 시 Cloud Run의 환경변수·시크릿으로 주입됩니다.
-
-## 보안 취약점 제보
-
-보안 이슈를 발견하셨다면 **공개 이슈 대신** GitHub Security Advisories를 통해 비공개로
-제보해 주시기 바랍니다.
+---
 
 ## 라이선스
 
