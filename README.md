@@ -1,7 +1,7 @@
 # SCP World
 
 SCP Foundation 위키 콘텐츠를 RAG로 검색하고, 재단 페르소나(연구원/요원/SCP-079)로 답변하는 챗봇 데모.
-포트폴리오용으로 100% 서버리스 (Cloud Run + Firebase Hosting + Firestore) 로 운영됩니다.
+100% 서버리스 (Cloud Run + Firebase Hosting + Firestore) 로 운영됩니다.
 
 ---
 
